@@ -13,6 +13,7 @@ const prisma_module_1 = require("./prisma/prisma.module");
 const shared_users_module_1 = require("./shared-users/shared-users.module");
 const webhook_module_1 = require("./webhook/webhook.module");
 const sync_module_1 = require("./sync/sync.module");
+const user_module_1 = require("./user/user.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -24,6 +25,7 @@ exports.AppModule = AppModule = __decorate([
             shared_users_module_1.SharedUsersModule,
             webhook_module_1.WebhookModule,
             sync_module_1.SyncModule,
+            user_module_1.UserModule,
         ],
         controllers: [],
         providers: [],

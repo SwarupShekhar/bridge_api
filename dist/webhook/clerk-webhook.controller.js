@@ -39,6 +39,10 @@ let ClerkWebhookController = ClerkWebhookController_1 = class ClerkWebhookContro
             throw error;
         }
     }
+    async handleLiveKitWebhook(event) {
+        this.logger.log(`Received LiveKit webhook event: ${event.type}`);
+        return { status: 'processed' };
+    }
 };
 exports.ClerkWebhookController = ClerkWebhookController;
 __decorate([
@@ -49,6 +53,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ClerkWebhookController.prototype, "handleClerkWebhook", null);
+__decorate([
+    (0, common_1.Post)('livekit/egress'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClerkWebhookController.prototype, "handleLiveKitWebhook", null);
 exports.ClerkWebhookController = ClerkWebhookController = ClerkWebhookController_1 = __decorate([
     (0, common_1.Controller)('webhooks'),
     __metadata("design:paramtypes", [clerk_webhook_service_1.ClerkWebhookService])

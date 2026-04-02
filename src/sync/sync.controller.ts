@@ -5,7 +5,7 @@ interface UpdateCefrDto {
   clerkId: string;
   cefrLevel: string;
   fluencyScore: number;
-  source: 'englivo' | 'engr';
+  source: 'PULSE' | 'CORE';
 }
 
 @Controller('sync')

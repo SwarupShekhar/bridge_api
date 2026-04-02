@@ -48,9 +48,9 @@ let SyncService = SyncService_1 = class SyncService {
     }
     async notifyOtherBackend(data) {
         const { clerkId, cefrLevel, fluencyScore, source } = data;
-        const targetUrl = source === 'engr'
-            ? process.env.ENGLIVO_INTERNAL_URL
-            : process.env.ENGR_INTERNAL_URL;
+        const targetUrl = source === 'PULSE'
+            ? process.env.CORE_INTERNAL_URL
+            : process.env.PULSE_INTERNAL_URL;
         if (!targetUrl) {
             throw new Error(`Target backend URL not configured for source: ${source}`);
         }
@@ -72,7 +72,7 @@ let SyncService = SyncService_1 = class SyncService {
                     'Content-Type': 'application/json',
                 },
             });
-            this.logger.log(`Successfully notified other backend (${source === 'engr' ? 'ENGLIVO' : 'ENGR'}) for user ${clerkId}`);
+            this.logger.log(`Successfully notified other backend (${source === 'PULSE' ? 'CORE' : 'PULSE'}) for user ${clerkId}`);
         }
         catch (error) {
             this.logger.error(`Failed to call ${endpoint}:`, error);

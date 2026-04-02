@@ -6,6 +6,11 @@ interface ClerkWebhookEvent {
   data: any;
 }
 
+interface LiveKitWebhookEvent {
+  type: string;
+  data: any;
+}
+
 @Controller('webhooks')
 export class ClerkWebhookController {
   private readonly logger = new Logger(ClerkWebhookController.name);
@@ -33,5 +38,15 @@ export class ClerkWebhookController {
       this.logger.error(`Error processing webhook event ${event.type}:`, error);
       throw error;
     }
+  }
+
+  @Post('livekit/egress')
+  @HttpCode(HttpStatus.OK)
+  async handleLiveKitWebhook(@Body() event: LiveKitWebhookEvent): Promise<{ status: string }> {
+    this.logger.log(`Received LiveKit webhook event: ${event.type}`);
+
+    // For now, just acknowledge the webhook
+    // TODO: Implement actual LiveKit egress handling logic
+    return { status: 'processed' };
   }
 }

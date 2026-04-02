@@ -7,7 +7,7 @@ interface UpdateCefrData {
   clerkId: string;
   cefrLevel: string;
   fluencyScore: number;
-  source: 'englivo' | 'engr';
+  source: 'PULSE' | 'CORE';
 }
 
 @Injectable()
@@ -59,10 +59,10 @@ export class SyncService {
   private async notifyOtherBackend(data: UpdateCefrData): Promise<void> {
     const { clerkId, cefrLevel, fluencyScore, source } = data;
     
-    // Determine which backend to call
-    const targetUrl = source === 'engr' 
-      ? process.env.ENGLIVO_INTERNAL_URL 
-      : process.env.ENGR_INTERNAL_URL;
+    // Determine which backend to call - PULSE notifies CORE, CORE notifies PULSE
+    const targetUrl = source === 'PULSE' 
+      ? process.env.CORE_INTERNAL_URL 
+      : process.env.PULSE_INTERNAL_URL;
 
     if (!targetUrl) {
       throw new Error(`Target backend URL not configured for source: ${source}`);
@@ -89,7 +89,7 @@ export class SyncService {
         },
       });
 
-      this.logger.log(`Successfully notified other backend (${source === 'engr' ? 'ENGLIVO' : 'ENGR'}) for user ${clerkId}`);
+      this.logger.log(`Successfully notified other backend (${source === 'PULSE' ? 'CORE' : 'PULSE'}) for user ${clerkId}`);
     } catch (error) {
       this.logger.error(`Failed to call ${endpoint}:`, error);
       throw error;

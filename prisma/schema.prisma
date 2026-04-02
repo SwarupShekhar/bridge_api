@@ -20,6 +20,12 @@ model SharedUser {
   englivoCredits     Int      @default(0) @map("englivo_credits")
   englivoProvisioned Boolean  @default(false) @map("englivo_provisioned")
   engrProvisioned    Boolean  @default(false) @map("engr_provisioned")
+  totalPracticeMinutes Int     @default(0) @map("total_practice_minutes")
+  streakDays          Int     @default(0) @map("streak_days")
+  lastActiveApp       String? @map("last_active_app")
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+  preferredMode       String? @map("preferred_mode")
+  lastSessionAt       DateTime? @map("last_session_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

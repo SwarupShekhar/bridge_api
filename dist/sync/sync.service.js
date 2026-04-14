@@ -26,7 +26,23 @@ let SyncService = SyncService_1 = class SyncService {
             where: { clerkId },
         });
         if (!existingUser) {
-            throw new Error(`SharedUser with clerkId ${clerkId} not found`);
+            this.logger.warn(`User ${clerkId} not found in database. Creating new user with CEFR data from ${source}`);
+            const newUser = await this.prisma.sharedUser.create({
+                data: {
+                    clerkId,
+                    email: `${clerkId}@placeholder.com`,
+                    fullName: `User ${clerkId}`,
+                    cefrLevel,
+                    fluencyScore,
+                    cefrUpdatedAt: new Date(),
+                    cefrUpdatedBy: source,
+                },
+            });
+            this.logger.log(`Created new user ${clerkId} with CEFR level ${cefrLevel} from ${source}`);
+            this.notifyOtherBackend(data).catch((error) => {
+                this.logger.error(`Failed to notify other backend for new user ${clerkId}:`, error);
+            });
+            return newUser;
         }
         if (existingUser.cefrLevel === cefrLevel) {
             this.logger.log(`CEFR level unchanged for user ${clerkId}, skipping update`);
@@ -45,6 +61,41 @@ let SyncService = SyncService_1 = class SyncService {
             this.logger.error(`Failed to notify other backend for user ${clerkId}:`, error);
         });
         return updatedUser;
+    }
+    async syncPlan(data) {
+        const { clerkId, plan } = data;
+        this.logger.log(`Received plan sync request for user ${clerkId}: ${plan}`);
+        const existingUser = await this.prisma.sharedUser.findUnique({
+            where: { clerkId },
+        });
+        if (!existingUser) {
+            this.logger.warn(`User ${clerkId} not found in database. Creating new user with plan data`);
+            await this.prisma.sharedUser.create({
+                data: {
+                    clerkId,
+                    email: `${clerkId}@placeholder.com`,
+                    fullName: `User ${clerkId}`,
+                    englivoPlan: plan === 'none' || plan === 'free' ? 'none' : plan,
+                    engrPlan: plan,
+                },
+            });
+            this.logger.log(`Created new user ${clerkId} with plan ${plan}`);
+            return;
+        }
+        const needsUpdate = existingUser.engrPlan !== plan ||
+            existingUser.englivoPlan !== plan;
+        if (!needsUpdate) {
+            this.logger.log(`Plan data unchanged for user ${clerkId}, skipping update`);
+            return;
+        }
+        await this.prisma.sharedUser.update({
+            where: { clerkId },
+            data: {
+                englivoPlan: plan === 'none' || plan === 'free' ? 'none' : plan,
+                engrPlan: plan,
+            },
+        });
+        this.logger.log(`Updated plan to ${plan} for user ${clerkId}`);
     }
     async notifyOtherBackend(data) {
         const { clerkId, cefrLevel, fluencyScore, source } = data;

@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SharedUser {
+  clerkId            String   @id @map("clerk_id")
+  email              String   @unique
+  fullName           String   @map("full_name")
+  cefrLevel          String   @default("A1") @map("cefr_level")
+  fluencyScore       Float    @default(0) @map("fluency_score")
+  cefrUpdatedAt      DateTime @default(now()) @map("cefr_updated_at")
+  cefrUpdatedBy      String?  @default("system") @map("cefr_updated_by")
+  englivoPlan        String   @default("none") @map("englivo_plan")
+  engrPlan           String   @default("free") @map("engr_plan")
+  englivoCredits     Int      @default(0) @map("englivo_credits")
+  englivoProvisioned Boolean  @default(false) @map("englivo_provisioned")
+  engrProvisioned    Boolean  @default(false) @map("engr_provisioned")
+  totalPracticeMinutes Int     @default(0) @map("total_practice_minutes")
+  streakDays          Int     @default(0) @map("streak_days")
+  lastActiveApp       String? @map("last_active_app")
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+  preferredMode       String? @map("preferred_mode")
+  lastSessionAt       DateTime? @map("last_session_at")
+  planUpdatedAt       DateTime? @map("plan_updated_at")
+  pulseCallsPerWeek   Int?    @map("pulse_calls_per_week")
+  coreTutorSecondsPerWeek Int? @map("core_tutor_seconds_per_week")
+  coreAiCreditsMonthly Int?   @map("core_ai_credits_monthly")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+}
+
+@@map("shared_users")

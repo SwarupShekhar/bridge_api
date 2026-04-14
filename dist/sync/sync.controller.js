@@ -29,13 +29,51 @@ let SyncController = SyncController_1 = class SyncController {
         this.logger.log(`Received CEFR update request for user ${body.clerkId} from ${body.source}`);
         try {
             const updatedUser = await this.syncService.syncCefr(body);
+            const userCreated = updatedUser.createdAt.getTime() === updatedUser.updatedAt.getTime();
             return {
                 status: 'success',
-                message: `CEFR level updated to ${body.cefrLevel} for user ${body.clerkId}`,
+                message: userCreated
+                    ? `Created new user ${body.clerkId} with CEFR level ${body.cefrLevel} from ${body.source}`
+                    : `CEFR level updated to ${body.cefrLevel} for user ${body.clerkId}`,
+                userCreated,
             };
         }
         catch (error) {
             this.logger.error(`Error updating CEFR for user ${body.clerkId}:`, error);
+            if (error instanceof Error) {
+                if (error.message.includes('not found')) {
+                    throw new common_1.NotFoundException(error.message);
+                }
+                if (error.message.includes('Invalid internal secret')) {
+                    throw new common_1.UnauthorizedException(error.message);
+                }
+            }
+            throw error;
+        }
+    }
+    async updatePlan(body, internalSecret) {
+        if (internalSecret !== process.env.INTERNAL_SECRET) {
+            this.logger.warn('Invalid internal secret provided for plan sync');
+            throw new common_1.UnauthorizedException('Invalid internal secret');
+        }
+        this.logger.log(`Received plan update request for user ${body.clerkId}: ${body.plan}`);
+        try {
+            await this.syncService.syncPlan(body);
+            return {
+                status: 'success',
+                message: `Plan updated to ${body.plan} for user ${body.clerkId}`,
+            };
+        }
+        catch (error) {
+            this.logger.error(`Error updating plan for user ${body.clerkId}:`, error);
+            if (error instanceof Error) {
+                if (error.message.includes('not found')) {
+                    throw new common_1.NotFoundException(error.message);
+                }
+                if (error.message.includes('Invalid internal secret')) {
+                    throw new common_1.UnauthorizedException(error.message);
+                }
+            }
             throw error;
         }
     }
@@ -50,6 +88,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], SyncController.prototype, "updateCefr", null);
+__decorate([
+    (0, common_1.Patch)('plan'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Headers)('x-internal-secret')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], SyncController.prototype, "updatePlan", null);
 exports.SyncController = SyncController = SyncController_1 = __decorate([
     (0, common_1.Controller)('sync'),
     __metadata("design:paramtypes", [sync_service_1.SyncService])

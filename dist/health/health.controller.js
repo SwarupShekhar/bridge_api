@@ -11,13 +11,22 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthController = void 0;
 const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../prisma/prisma.service");
 let HealthController = class HealthController {
-    getHealth() {
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async getHealth() {
+        const dbConnected = await this.prisma.healthCheck();
         return {
-            status: 'ok',
+            status: dbConnected ? 'ok' : 'degraded',
             timestamp: new Date().toISOString(),
             service: 'bridge-api',
             version: process.env.npm_package_version || '1.0.0',
+            database: {
+                connected: dbConnected,
+                status: dbConnected ? 'healthy' : 'unhealthy'
+            }
         };
     }
     getRoot() {
@@ -32,7 +41,7 @@ __decorate([
     (0, common_1.Get)('health'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], HealthController.prototype, "getHealth", null);
 __decorate([
     (0, common_1.Get)(),
@@ -41,5 +50,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], HealthController.prototype, "getRoot", null);
 exports.HealthController = HealthController = __decorate([
-    (0, common_1.Controller)()
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], HealthController);

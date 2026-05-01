@@ -8,12 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const axios_1 = require("@nestjs/axios");
 const prisma_module_1 = require("./prisma/prisma.module");
 const shared_users_module_1 = require("./shared-users/shared-users.module");
 const webhook_module_1 = require("./webhook/webhook.module");
 const sync_module_1 = require("./sync/sync.module");
 const user_module_1 = require("./user/user.module");
+const bridge_proxy_module_1 = require("./bridge-proxy/bridge-proxy.module");
 const health_controller_1 = require("./health/health.controller");
 let AppModule = class AppModule {
 };
@@ -21,12 +23,16 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            config_1.ConfigModule.forRoot({
+                isGlobal: true,
+            }),
             axios_1.HttpModule,
             prisma_module_1.PrismaModule,
             shared_users_module_1.SharedUsersModule,
             webhook_module_1.WebhookModule,
             sync_module_1.SyncModule,
             user_module_1.UserModule,
+            bridge_proxy_module_1.BridgeProxyModule,
         ],
         controllers: [health_controller_1.HealthController],
         providers: [],

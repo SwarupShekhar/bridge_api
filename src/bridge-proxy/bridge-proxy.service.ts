@@ -17,6 +17,8 @@ export class BridgeProxyService {
     
     if (!this.bridgeInternalSecret) {
       this.logger.error('BRIDGE_INTERNAL_SECRET environment variable not set');
+    } else {
+      this.logger.log('Bridge proxy service initialized with internal secret');
     }
   }
 

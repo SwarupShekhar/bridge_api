@@ -24,6 +24,9 @@ let BridgeProxyService = BridgeProxyService_1 = class BridgeProxyService {
         if (!this.bridgeInternalSecret) {
             this.logger.error('BRIDGE_INTERNAL_SECRET environment variable not set');
         }
+        else {
+            this.logger.log('Bridge proxy service initialized with internal secret');
+        }
     }
     async updateLastActive(clerkId, app) {
         this.logger.log(`Updating last active app to ${app} for user ${clerkId}`);

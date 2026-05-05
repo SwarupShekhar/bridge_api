@@ -16,22 +16,63 @@ const client_1 = require("@prisma/client");
 let PrismaService = PrismaService_1 = class PrismaService extends client_1.PrismaClient {
     constructor() {
         super({
-            log: ['warn', 'error'],
+            log: ['info', 'warn', 'error'],
+            datasources: {
+                db: {
+                    url: process.env.DATABASE_URL,
+                },
+            },
         });
         this.logger = new common_1.Logger(PrismaService_1.name);
+        this.connectionRetries = 0;
+        this.maxRetries = 3;
+        this.isConnecting = false;
     }
     async onModuleInit() {
-        try {
-            this.logger.log('Connecting to database...');
-            await this.$connect();
-            this.logger.log('Successfully connected to database');
+        this.logger.log('PrismaService initialized - connection will be established on first query');
+    }
+    async connectWithRetry() {
+        if (this.isConnecting) {
+            this.logger.log('Connection already in progress, waiting...');
+            while (this.isConnecting) {
+                await this.delay(100);
+            }
+            return;
         }
-        catch (error) {
-            this.logger.error('Failed to connect to database:', error);
+        this.isConnecting = true;
+        while (this.connectionRetries < this.maxRetries) {
+            try {
+                this.logger.log(`Connecting to database... (Attempt ${this.connectionRetries + 1}/${this.maxRetries})`);
+                await this.$connect();
+                this.logger.log('Successfully connected to database');
+                this.connectionRetries = 0;
+                this.isConnecting = false;
+                return;
+            }
+            catch (error) {
+                this.connectionRetries++;
+                this.logger.error(`Database connection attempt ${this.connectionRetries} failed:`, error.message);
+                if (this.connectionRetries >= this.maxRetries) {
+                    this.logger.error('Max connection retries reached. Database will be available on first query.');
+                    this.connectionRetries = 0;
+                    this.isConnecting = false;
+                    return;
+                }
+                await this.delay(2000 * this.connectionRetries);
+            }
         }
     }
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
     async onModuleDestroy() {
-        await this.$disconnect();
+        try {
+            await this.$disconnect();
+            this.logger.log('Successfully disconnected from database');
+        }
+        catch (error) {
+            this.logger.error('Error disconnecting from database:', error);
+        }
     }
     async healthCheck() {
         try {
@@ -39,7 +80,34 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
             return true;
         }
         catch (error) {
-            this.logger.error('Database health check failed:', error);
+            this.logger.error('Database health check failed:', error.message);
+            await this.connectWithRetry();
+            return false;
+        }
+    }
+    async executeWithRetry(operation) {
+        if (!this.isHealthy()) {
+            await this.connectWithRetry();
+        }
+        try {
+            return await operation();
+        }
+        catch (error) {
+            if (error.message?.includes('connection') || error.message?.includes('closed') ||
+                error.message?.includes('database') || error.code === 'P1001' ||
+                error.code === 'P1002') {
+                this.logger.warn('Database connection lost, attempting to reconnect...');
+                await this.connectWithRetry();
+                return await operation();
+            }
+            throw error;
+        }
+    }
+    isHealthy() {
+        try {
+            return this.$queryRaw !== undefined;
+        }
+        catch {
             return false;
         }
     }

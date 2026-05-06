@@ -15,11 +15,38 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 let PrismaService = PrismaService_1 = class PrismaService extends client_1.PrismaClient {
     constructor() {
+        const baseUrl = process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL?.includes('sslmode')
+            ? `${process.env.DATABASE_URL}?sslmode=require`
+            : process.env.DATABASE_URL;
+        const isNeon = baseUrl.includes('neon.tech') || baseUrl.includes('pooler');
+        const hasConnectionLimit = baseUrl.includes('connection_limit=');
+        const hasPoolTimeout = baseUrl.includes('pool_timeout=');
+        const hasKeepalive = baseUrl.includes('tcp_keepalives_idle=');
+        const hasPgbouncer = baseUrl.includes('pgbouncer=');
+        let connectionUrl = baseUrl;
+        if (isNeon) {
+            const paramSeparator = baseUrl.includes('?') ? '&' : '?';
+            const params = [];
+            if (!hasConnectionLimit)
+                params.push('connection_limit=1');
+            if (!hasPoolTimeout)
+                params.push('pool_timeout=3');
+            if (!hasKeepalive) {
+                params.push('tcp_keepalives_idle=30');
+                params.push('tcp_keepalives_interval=10');
+                params.push('tcp_keepalives_count=5');
+            }
+            if (!hasPgbouncer)
+                params.push('pgbouncer=true');
+            if (params.length > 0) {
+                connectionUrl = `${baseUrl}${paramSeparator}${params.join('&')}`;
+            }
+        }
         super({
             log: ['info', 'warn', 'error'],
             datasources: {
                 db: {
-                    url: process.env.DATABASE_URL,
+                    url: connectionUrl,
                 },
             },
         });
@@ -27,9 +54,15 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
         this.connectionRetries = 0;
         this.maxRetries = 3;
         this.isConnecting = false;
+        this.isProperlyConnected = false;
     }
     async onModuleInit() {
-        this.logger.log('PrismaService initialized - connection will be established on first query');
+        this.logger.log('PrismaService initialized - will connect on first query');
+        this.keepaliveInterval = setInterval(() => {
+            this.keepConnectionAlive().catch(err => {
+                this.logger.debug('Keepalive ping failed, will reconnect on next query:', err.message);
+            });
+        }, 4 * 60 * 1000);
     }
     async connectWithRetry() {
         if (this.isConnecting) {
@@ -47,6 +80,7 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
                 this.logger.log('Successfully connected to database');
                 this.connectionRetries = 0;
                 this.isConnecting = false;
+                this.isProperlyConnected = true;
                 return;
             }
             catch (error) {
@@ -56,6 +90,7 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
                     this.logger.error('Max connection retries reached. Database will be available on first query.');
                     this.connectionRetries = 0;
                     this.isConnecting = false;
+                    this.isProperlyConnected = false;
                     return;
                 }
                 await this.delay(2000 * this.connectionRetries);
@@ -65,13 +100,37 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-    async onModuleDestroy() {
+    async keepConnectionAlive() {
         try {
-            await this.$disconnect();
-            this.logger.log('Successfully disconnected from database');
+            if (this.isProperlyConnected) {
+                await this.$queryRaw `SELECT 1`;
+                this.logger.debug('Keepalive ping successful');
+            }
         }
         catch (error) {
-            this.logger.error('Error disconnecting from database:', error);
+            this.isProperlyConnected = false;
+            this.logger.debug('Keepalive ping failed, connection likely closed');
+        }
+    }
+    async onModuleDestroy() {
+        this.cleanup();
+        this.logger.log('Prisma module destroyed');
+    }
+    async onApplicationShutdown() {
+        this.cleanup();
+        this.logger.log('Application shutdown complete');
+    }
+    cleanup() {
+        if (this.keepaliveInterval) {
+            clearInterval(this.keepaliveInterval);
+            this.keepaliveInterval = undefined;
+        }
+        try {
+            if (this.isProperlyConnected) {
+                this.$disconnect().catch(() => { });
+            }
+        }
+        catch {
         }
     }
     async healthCheck() {
@@ -86,29 +145,33 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
         }
     }
     async executeWithRetry(operation) {
-        if (!this.isHealthy()) {
+        if (!this.isProperlyConnected) {
             await this.connectWithRetry();
         }
         try {
-            return await operation();
+            const result = await operation();
+            this.isProperlyConnected = true;
+            return result;
         }
         catch (error) {
-            if (error.message?.includes('connection') || error.message?.includes('closed') ||
+            const errorString = JSON.stringify(error);
+            const isConnectionError = error.message?.includes('connection') || error.message?.includes('closed') ||
                 error.message?.includes('database') || error.code === 'P1001' ||
-                error.code === 'P1002') {
-                this.logger.warn('Database connection lost, attempting to reconnect...');
+                error.code === 'P1002' ||
+                errorString.includes('kind: Closed') ||
+                errorString.includes('ConnectionClosedError');
+            if (isConnectionError) {
+                this.logger.warn('Database connection lost, attempting to reconnect...', error.message);
+                this.isProperlyConnected = false;
+                try {
+                    await this.$disconnect();
+                }
+                catch {
+                }
                 await this.connectWithRetry();
                 return await operation();
             }
             throw error;
-        }
-    }
-    isHealthy() {
-        try {
-            return this.$queryRaw !== undefined;
-        }
-        catch {
-            return false;
         }
     }
 };
